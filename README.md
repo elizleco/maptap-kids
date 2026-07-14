@@ -17,6 +17,9 @@ United States by tapping **states, cities, landmarks, rivers, and mountains**.
    comes with a fun fact (state questions teach the state capital!).
 5. Wrong taps get a friendly "try again" — after two misses the answer is revealed. No fail states,
    just exploring!
+6. Need a closer look? Zoom with the ➕/➖ buttons, pinch, or scroll, and drag to pan — 🗺️ resets
+   the view. The map shows topography (river lines and ⛰️ mountain ridges) as landmarks to steer
+   by; they hide automatically when they'd give an answer away.
 
 ## Running it
 

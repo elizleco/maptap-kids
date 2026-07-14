@@ -194,16 +194,68 @@
 
   const mapSvg = d3.select("#map-holder").append("svg")
     .attr("viewBox", `0 0 ${MAP_W} ${MAP_H}`);
-  const statesLayer = mapSvg.append("g");
-  const featureLayer = mapSvg.append("g"); // rivers / ranges / markers
-  const labelLayer = mapSvg.append("g");
+  const zoomRoot = mapSvg.append("g");
+  const statesLayer = zoomRoot.append("g");
+  const terrainLayer = zoomRoot.append("g").style("pointer-events", "none");
+  const featureLayer = zoomRoot.append("g"); // question rivers / ranges / markers
+  const labelLayer = zoomRoot.append("g");
 
   statesLayer.selectAll("path")
     .data(states).join("path")
     .attr("class", "state")
     .attr("d", usPath)
+    .attr("vector-effect", "non-scaling-stroke")
     .attr("fill", (d, i) => PASTELS[i % PASTELS.length])
     .attr("data-name", d => d.properties.name);
+
+  // Always-on topography: mountain ridges and rivers as landmarks to steer by
+  const terrainRanges = terrainLayer.append("g");
+  const terrainRivers = terrainLayer.append("g");
+  RANGES.forEach(m => {
+    const projected = m.points.map(p => usProj(p)).filter(Boolean);
+    terrainRanges.append("path")
+      .attr("d", lineGen(projected))
+      .attr("fill", "none")
+      .attr("stroke", "#b98a63")
+      .attr("stroke-width", 14)
+      .attr("stroke-opacity", 0.3)
+      .attr("stroke-linecap", "round").attr("stroke-linejoin", "round");
+    projected.forEach(p => {
+      terrainRanges.append("text").attr("x", p[0]).attr("y", p[1] + 4)
+        .attr("text-anchor", "middle").attr("font-size", 12)
+        .attr("opacity", 0.8).text("⛰️");
+    });
+  });
+  PEAKS.filter(p => !["Mount Rainier", "Mount Whitney"].includes(p.name)).forEach(p => {
+    const xy = usProj(p.coords);
+    if (!xy) return;
+    terrainRanges.append("text").attr("x", xy[0]).attr("y", xy[1] + 4)
+      .attr("text-anchor", "middle").attr("font-size", 12)
+      .attr("opacity", 0.8).text("⛰️");
+  });
+  RIVERS.forEach(r => {
+    terrainRivers.append("path")
+      .attr("d", lineGen(r.points.map(p => usProj(p)).filter(Boolean)))
+      .attr("fill", "none")
+      .attr("stroke", "#3f97d8")
+      .attr("stroke-width", 2.5)
+      .attr("stroke-opacity", 0.85)
+      .attr("vector-effect", "non-scaling-stroke")
+      .attr("stroke-linecap", "round").attr("stroke-linejoin", "round");
+  });
+
+  // Zoom & pan (wheel, pinch, drag) plus the ➕ ➖ 🗺️ buttons
+  const zoom = d3.zoom()
+    .scaleExtent([1, 8])
+    .translateExtent([[0, 0], [MAP_W, MAP_H]])
+    .on("zoom", e => zoomRoot.attr("transform", e.transform));
+  mapSvg.call(zoom).on("dblclick.zoom", null);
+  document.getElementById("zoom-in").addEventListener("click", () =>
+    mapSvg.transition().duration(300).call(zoom.scaleBy, 1.6));
+  document.getElementById("zoom-out").addEventListener("click", () =>
+    mapSvg.transition().duration(300).call(zoom.scaleBy, 1 / 1.6));
+  document.getElementById("zoom-reset").addEventListener("click", () =>
+    mapSvg.transition().duration(400).call(zoom.transform, d3.zoomIdentity));
 
   // ---------------------------------------------------------------
   // GAME STATE
@@ -320,6 +372,10 @@
     els.question.textContent = questionPrompt(q);
 
     const hard = difficulty === "hard";
+    mapSvg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
+    // terrain is a searching aid — hide it only when it would give away an easy question
+    terrainRivers.style("display", !hard && q.type === "river" ? "none" : null);
+    terrainRanges.style("display", !hard && q.type === "range" ? "none" : null);
     if (q.type === "state") setupStateQuestion(q);
     else if (q.type === "point") (hard ? setupPointQuestionHard : setupPointQuestion)(q);
     else if (q.type === "river") hard ? setupLineQuestionHard(q, TOL.river, RIVER_STYLE) : setupRiverQuestion(q);
@@ -458,6 +514,7 @@
     featureLayer.append("path")
       .attr("d", lineGen(projected))
       .attr("fill", "none")
+      .attr("vector-effect", "non-scaling-stroke")
       .attr("stroke", style.stroke)
       .attr("stroke-width", style.width)
       .attr("stroke-linecap", "round").attr("stroke-linejoin", "round")
@@ -541,6 +598,7 @@
         .attr("class", "visible-line")
         .attr("d", dAttr)
         .attr("fill", "none")
+        .attr("vector-effect", "non-scaling-stroke")
         .attr("stroke", cfg.stroke)
         .attr("stroke-width", cfg.width)
         .attr("stroke-linecap", cfg.cap || "round")
@@ -559,6 +617,7 @@
         .attr("d", dAttr)
         .attr("fill", "none")
         .attr("stroke", "transparent")
+        .attr("vector-effect", "non-scaling-stroke")
         .attr("stroke-width", cfg.hitWidth)
         .attr("stroke-linecap", "round");
     });
