@@ -222,8 +222,12 @@
     endMessage: document.getElementById("end-message")
   };
 
-  let game = null; // { questions, index, stars, misses, locked }
+  let game = null; // { questions, index, stars, misses, locked, lightning, deadline }
   let advanceTimer = null; // pending "next question" timeout
+  let lightningTick = null; // countdown interval for lightning mode
+  let difficulty = "easy"; // "easy" = borders + helper buttons, "hard" = blank map, tap from memory
+  const LIGHTNING_SECONDS = 60;
+  const TOL = { point: 55, river: 38, range: 60 }; // hard-mode tap tolerance (viewBox px)
 
   const shuffle = arr => d3.shuffle(arr.slice());
   const pick = (arr, n) => shuffle(arr).slice(0, n);
@@ -249,15 +253,35 @@
           ...pick(RANGES, 1).map(r => ({ type: "range", target: r }))
         ];
         return shuffle(qs);
-      }
+      },
+      lightning: () => shuffle([
+        ...states.map(f => ({ type: "state", target: f })),
+        ...CITIES.map(c => ({ type: "point", kind: "city", target: c, pool: CITIES, emoji: "🏙️" })),
+        ...LANDMARKS.map(l => ({ type: "point", kind: "landmark", target: l, pool: LANDMARKS, emoji: "📍" })),
+        ...PEAKS.map(p => ({ type: "point", kind: "peak", target: p, pool: PEAKS, emoji: "⛰️" })),
+        ...RIVERS.map(r => ({ type: "river", target: r })),
+        ...RANGES.map(r => ({ type: "range", target: r }))
+      ])
     };
     return makers[category]();
   }
 
   function startGame(category) {
     clearTimeout(advanceTimer);
-    game = { questions: buildQuestions(category), index: 0, stars: 0, misses: 0, locked: false };
+    clearInterval(lightningTick);
+    const lightning = category === "lightning";
+    game = { questions: buildQuestions(category), index: 0, stars: 0, misses: 0, locked: false, lightning };
     els.stars.textContent = "⭐ 0";
+    if (lightning) {
+      game.deadline = Date.now() + LIGHTNING_SECONDS * 1000;
+      els.progress.textContent = `⏱️ ${LIGHTNING_SECONDS}s`;
+      lightningTick = setInterval(() => {
+        if (!game || !game.lightning) { clearInterval(lightningTick); return; }
+        const left = Math.max(0, Math.ceil((game.deadline - Date.now()) / 1000));
+        els.progress.textContent = `⏱️ ${left}s`;
+        if (left <= 0) endLightning();
+      }, 200);
+    }
     showQuestion();
   }
 
@@ -275,9 +299,12 @@
   function clearFeatures() {
     featureLayer.selectAll("*").remove();
     labelLayer.selectAll("*").remove();
+    const hard = difficulty === "hard";
+    mapSvg.classed("hard-map", hard);
     statesLayer.selectAll(".state")
       .interrupt()
-      .attr("fill", (d, i) => PASTELS[i % PASTELS.length])
+      .attr("fill", hard ? "#9fdc8b" : (d, i) => PASTELS[i % PASTELS.length])
+      .style("stroke", hard ? "#9fdc8b" : null)
       .style("pointer-events", null)
       .on("click", null);
   }
@@ -289,13 +316,14 @@
     game.locked = false;
     hideToast();
     clearFeatures();
-    els.progress.textContent = `${game.index + 1} / ${game.questions.length}`;
+    if (!game.lightning) els.progress.textContent = `${game.index + 1} / ${game.questions.length}`;
     els.question.textContent = questionPrompt(q);
 
+    const hard = difficulty === "hard";
     if (q.type === "state") setupStateQuestion(q);
-    else if (q.type === "point") setupPointQuestion(q);
-    else if (q.type === "river") setupRiverQuestion(q);
-    else if (q.type === "range") setupRangeQuestion(q);
+    else if (q.type === "point") (hard ? setupPointQuestionHard : setupPointQuestion)(q);
+    else if (q.type === "river") hard ? setupLineQuestionHard(q, TOL.river, RIVER_STYLE) : setupRiverQuestion(q);
+    else if (q.type === "range") hard ? setupLineQuestionHard(q, TOL.range, RANGE_STYLE) : setupRangeQuestion(q);
   }
 
   // --- states: tap directly on the colored map ---
@@ -303,19 +331,21 @@
     statesLayer.selectAll(".state").on("click", function (event, d) {
       if (game.locked) return;
       if (d.properties.name === q.target.properties.name) {
-        d3.select(this).attr("fill", "#7ed957").classed("correct-flash", true);
-        handleCorrect(q, usPath.centroid(d));
+        d3.select(this).attr("fill", "#7ed957").style("stroke", "#ffffff").classed("correct-flash", true);
+        handleCorrect(q);
       } else {
         d3.select(this).transition().duration(180).attr("fill", "#c9c9c9")
           .transition().duration(600).attr("fill", d3.select(this).attr("fill"));
-        handleMiss(q, () => revealState(q));
+        const hint = difficulty === "hard"
+          ? directionHint(...usPath.centroid(d), ...usPath.centroid(q.target)) : null;
+        handleMiss(q, () => revealState(q), hint);
       }
     });
   }
   function revealState(q) {
     const sel = statesLayer.selectAll(".state").filter(d => d.properties.name === q.target.properties.name);
-    sel.attr("fill", "#7ed957").classed("correct-flash", true);
-    revealDone(q, usPath.centroid(q.target));
+    sel.attr("fill", "#7ed957").style("stroke", "#ffffff").classed("correct-flash", true);
+    revealDone(q);
   }
 
   // --- points (cities / landmarks / peaks): tap the right marker ---
@@ -338,7 +368,7 @@
       if (d.name === q.target.name) {
         markerToStar(d3.select(this));
         labelPoint(q.target);
-        handleCorrect(q, usProj(d.coords));
+        handleCorrect(q);
       } else {
         d3.select(this).select("circle:nth-child(2)").attr("fill", "#c9c9c9");
         d3.select(this).style("opacity", 0.45).style("pointer-events", "none");
@@ -354,7 +384,113 @@
     const g = featureLayer.selectAll("g.marker").filter(d => d.name === q.target.name);
     markerToStar(g);
     labelPoint(q.target);
-    revealDone(q, usProj(q.target.coords));
+    revealDone(q);
+  }
+
+  // --- HARD MODE: no helpers, tap the blank map from memory ---
+  function addTapOverlay(onTap) {
+    featureLayer.append("rect")
+      .attr("x", 0).attr("y", 0).attr("width", MAP_W).attr("height", MAP_H)
+      .attr("fill", "transparent")
+      .on("click", function (event) {
+        if (game.locked) return;
+        const [x, y] = d3.pointer(event);
+        onTap(x, y);
+      });
+  }
+
+  function tapRipple(x, y) {
+    featureLayer.append("circle")
+      .attr("cx", x).attr("cy", y).attr("r", 5)
+      .attr("fill", "none").attr("stroke", "#ff6b6b").attr("stroke-width", 4)
+      .style("pointer-events", "none")
+      .transition().duration(500).attr("r", 28).style("opacity", 0).remove();
+  }
+
+  function directionHint(x, y, tx, ty) {
+    const dx = tx - x, dy = ty - y;
+    const dirs = [];
+    if (Math.abs(dy) > 30) dirs.push(dy < 0 ? "⬆️ north" : "⬇️ south");
+    if (Math.abs(dx) > 30) dirs.push(dx < 0 ? "⬅️ west" : "➡️ east");
+    return dirs.length ? `Try again — head ${dirs.join(" and ")}! 🧭` : "SO close! Tap right there! 🎯";
+  }
+
+  function dropStar(item) {
+    const [x, y] = usProj(item.coords);
+    const g = featureLayer.append("g").attr("class", "marker")
+      .attr("transform", `translate(${x},${y})`)
+      .style("pointer-events", "none");
+    g.append("circle").attr("r", 15).attr("fill", "#ffd93d").attr("stroke", "#1e3a5f").attr("stroke-width", 3);
+    g.append("text").attr("text-anchor", "middle").attr("dy", "0.35em").attr("font-size", 20).text("⭐");
+    labelPoint(item);
+  }
+
+  function setupPointQuestionHard(q) {
+    statesLayer.selectAll(".state").style("pointer-events", "none");
+    const [tx, ty] = usProj(q.target.coords);
+    addTapOverlay((x, y) => {
+      if (Math.hypot(x - tx, y - ty) <= TOL.point) {
+        dropStar(q.target);
+        handleCorrect(q);
+      } else {
+        tapRipple(x, y);
+        handleMiss(q, () => { dropStar(q.target); revealDone(q); }, directionHint(x, y, tx, ty));
+      }
+    });
+  }
+
+  const RIVER_STYLE = { stroke: "#1cb0f6", width: 6, decorate: false };
+  const RANGE_STYLE = { stroke: "#7ed957", width: 18, decorate: true };
+
+  function distToPolyline(x, y, pts) {
+    let best = Infinity;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x1, y1] = pts[i], [x2, y2] = pts[i + 1];
+      const dx = x2 - x1, dy = y2 - y1;
+      const t = Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy || 1)));
+      best = Math.min(best, Math.hypot(x - (x1 + t * dx), y - (y1 + t * dy)));
+    }
+    return best;
+  }
+
+  function drawAnswerLine(item, style) {
+    const projected = item.points.map(p => usProj(p)).filter(Boolean);
+    featureLayer.append("path")
+      .attr("d", lineGen(projected))
+      .attr("fill", "none")
+      .attr("stroke", style.stroke)
+      .attr("stroke-width", style.width)
+      .attr("stroke-linecap", "round").attr("stroke-linejoin", "round")
+      .style("pointer-events", "none");
+    if (style.decorate) {
+      projected.filter((p, i) => i % 2 === 0).forEach(p => {
+        featureLayer.append("text").attr("x", p[0]).attr("y", p[1] + 5)
+          .attr("text-anchor", "middle").attr("font-size", 15)
+          .style("pointer-events", "none").text("⛰️");
+      });
+    }
+    const [x, y] = projected[Math.floor(projected.length / 2)];
+    labelLayer.append("text")
+      .attr("class", "answer-label")
+      .attr("x", x).attr("y", y - 18)
+      .attr("text-anchor", "middle")
+      .attr("font-size", 20)
+      .text(item.name);
+  }
+
+  function setupLineQuestionHard(q, tol, style) {
+    statesLayer.selectAll(".state").style("pointer-events", "none");
+    const pts = q.target.points.map(p => usProj(p)).filter(Boolean);
+    addTapOverlay((x, y) => {
+      if (distToPolyline(x, y, pts) <= tol) {
+        drawAnswerLine(q.target, style);
+        handleCorrect(q);
+      } else {
+        tapRipple(x, y);
+        const [mx, my] = pts[Math.floor(pts.length / 2)];
+        handleMiss(q, () => { drawAnswerLine(q.target, style); revealDone(q); }, directionHint(x, y, mx, my));
+      }
+    });
   }
   function labelPoint(item) {
     const [x, y] = usProj(item.coords);
@@ -432,14 +568,14 @@
       if (d.name === q.target.name) {
         d3.select(this).select(".visible-line").attr("stroke", cfg.correctStroke).attr("stroke-opacity", 1);
         labelLine(q.target, cfg);
-        handleCorrect(q, cfg.label(d));
+        handleCorrect(q);
       } else {
         d3.select(this).style("opacity", 0.3).style("pointer-events", "none");
         handleMiss(q, () => {
           const g = featureLayer.selectAll("g.lineopt").filter(x => x.name === q.target.name);
           g.select(".visible-line").attr("stroke", cfg.correctStroke).attr("stroke-opacity", 1);
           labelLine(q.target, cfg);
-          revealDone(q, cfg.label(q.target));
+          revealDone(q);
         });
       }
     });
@@ -468,44 +604,77 @@
     return q.type === "state" ? q.target.properties.name : q.target.name;
   }
 
-  function handleCorrect(q, xy) {
+  function handleCorrect(q) {
     game.locked = true;
     sndCorrect();
-    const earned = game.misses === 0 ? 2 : 1;
+    const earned = game.lightning ? 1 : (game.misses === 0 ? 2 : 1);
     game.stars += earned;
     els.stars.textContent = `⭐ ${game.stars}`;
-    confettiBurst();
-    showToast(`${rand(CHEERS)} ${"⭐".repeat(earned)}`, factFor(q));
     clearTimeout(advanceTimer);
-    advanceTimer = setTimeout(nextQuestion, 2600);
+    if (game.lightning) {
+      showToast(rand(CHEERS));
+      advanceTimer = setTimeout(nextQuestion, 700);
+    } else {
+      confettiBurst();
+      showToast(`${rand(CHEERS)} ${"⭐".repeat(earned)}`, factFor(q));
+      advanceTimer = setTimeout(nextQuestion, 2600);
+    }
   }
 
-  function handleMiss(q, revealFn) {
+  function handleMiss(q, revealFn, hint) {
     sndWrong();
     game.misses++;
     els.banner.classList.remove("wiggle");
     void els.banner.offsetWidth; // restart animation
     els.banner.classList.add("wiggle");
-    if (game.misses >= 2) {
+    if (game.lightning || game.misses >= 2) {
       game.locked = true;
       revealFn();
     } else {
-      showToast(rand(TRY_AGAIN), null, 1400);
+      showToast(hint || rand(TRY_AGAIN), null, 1600);
     }
   }
 
-  function revealDone(q, xy) {
+  function revealDone(q) {
     sndTap();
-    showToast(`${nameFor(q)} is right here! 👀`, factFor(q));
     clearTimeout(advanceTimer);
-    advanceTimer = setTimeout(nextQuestion, 2800);
+    if (game.lightning) {
+      showToast(`${nameFor(q)} is here! 👀`);
+      advanceTimer = setTimeout(nextQuestion, 1100);
+    } else {
+      showToast(`${nameFor(q)} is right here! 👀`, factFor(q));
+      advanceTimer = setTimeout(nextQuestion, 2800);
+    }
   }
 
   function nextQuestion() {
     if (!game) return; // went home mid-round
     game.index++;
-    if (game.index >= game.questions.length) endGame();
-    else showQuestion();
+    if (game.lightning) {
+      if (Date.now() >= game.deadline) return endLightning();
+      if (game.index >= game.questions.length) game.index = 0; // speedy kid — recycle the deck
+      showQuestion();
+    } else if (game.index >= game.questions.length) {
+      endGame();
+    } else {
+      showQuestion();
+    }
+  }
+
+  function endLightning() {
+    if (!game || !game.lightning) return;
+    clearInterval(lightningTick);
+    clearTimeout(advanceTimer);
+    sndFanfare();
+    const n = game.stars;
+    els.endStars.textContent = "⭐".repeat(Math.max(1, Math.min(5, Math.ceil(n / 2))));
+    els.endTitle.textContent = "⚡ Lightning Round Over!";
+    els.endMessage.textContent = `You got ${n} answer${n === 1 ? "" : "s"} right in ${LIGHTNING_SECONDS} seconds! ` +
+      (n >= 10 ? "Super speedy! 🚀" : "Can you beat that next time?");
+    game = null;
+    hideToast();
+    swapScreen(els.game, els.end);
+    confettiBurst(60);
   }
 
   function endGame() {
@@ -567,6 +736,20 @@
   // ---------------------------------------------------------------
   // WIRING
   // ---------------------------------------------------------------
+  const DIFF_HINTS = {
+    easy: "Colorful map with helper buttons!",
+    hard: "No borders, no buttons — tap from memory! Compass hints if you miss."
+  };
+  document.querySelectorAll(".diff-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      ensureAudio();
+      sndTap();
+      difficulty = btn.dataset.diff;
+      document.querySelectorAll(".diff-btn").forEach(b => b.classList.toggle("selected", b === btn));
+      document.getElementById("diff-hint").textContent = DIFF_HINTS[difficulty];
+    });
+  });
+
   document.querySelectorAll(".cat-btn[data-cat]").forEach(btn => {
     btn.addEventListener("click", () => {
       ensureAudio();
@@ -582,6 +765,7 @@
   document.getElementById("home-btn").addEventListener("click", () => {
     game = null;
     clearTimeout(advanceTimer);
+    clearInterval(lightningTick);
     hideToast();
     clearFeatures();
     swapScreen(els.game, els.start);

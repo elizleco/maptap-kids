@@ -54,9 +54,38 @@ body {
 }
 
 #globe-holder { line-height: 0; filter: drop-shadow(0 12px 24px rgba(20, 60, 120, 0.35)); }
-#globe-holder svg { width: min(46vh, 82vw); height: auto; }
+#globe-holder svg { width: min(38vh, 78vw); height: auto; }
 
 .pick-label { font-size: 1.25rem; font-weight: bold; }
+
+.difficulty-row { display: flex; gap: 10px; }
+.diff-btn {
+  font-family: inherit;
+  font-size: clamp(0.95rem, 2.2vw, 1.15rem);
+  font-weight: bold;
+  color: var(--ink);
+  background: rgba(255,255,255,0.55);
+  border: 3px dashed var(--ink);
+  border-radius: 999px;
+  padding: 8px 18px;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: transform 0.12s ease;
+}
+.diff-btn:hover { transform: scale(1.05); }
+.diff-btn.selected {
+  background: var(--grass);
+  border-style: solid;
+  border-width: 4px;
+  opacity: 1;
+  box-shadow: 0 4px 0 rgba(30,58,95,0.5);
+}
+.diff-hint {
+  font-size: 0.95rem;
+  background: rgba(255,255,255,0.55);
+  padding: 2px 14px;
+  border-radius: 999px;
+}
 
 .category-buttons {
   display: flex;
@@ -82,6 +111,11 @@ body {
 .cat-btn:hover { transform: translateY(-3px) scale(1.04); }
 .cat-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(30,58,95,0.55); }
 .cat-btn.mix { background: var(--sunny); }
+.cat-btn.lightning { background: #ff9f43; }
+
+/* Map Master mode: no borders, no hover peeking */
+.hard-map { cursor: crosshair; }
+.hard-map .state:hover { filter: none; }
 
 /* ---------- GAME SCREEN ---------- */
 #game-screen { justify-content: flex-start; gap: 6px; }

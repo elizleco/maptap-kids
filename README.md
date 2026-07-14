@@ -5,12 +5,17 @@ United States by tapping **states, cities, landmarks, rivers, and mountains**.
 
 ## How to play
 
-1. Pick an adventure: 🗺️ States, 🏙️ Cities, 🗽 Landmarks, 🏞️ Rivers, ⛰️ Mountains, or 🌟 Mix It Up!
-2. The globe zooms into America and asks 8 questions like *"Can you find Texas?"* or
+1. Pick a difficulty:
+   - 🐣 **Little Explorer** — colorful bordered map with helper buttons to tap
+   - 🦅 **Map Master** — for older kids: no borders, no buttons. Tap locations from memory on a
+     blank silhouette of America, with compass hints (⬆️⬅️) when you miss
+2. Pick an adventure: 🗺️ States, 🏙️ Cities, 🗽 Landmarks, 🏞️ Rivers, ⛰️ Mountains, 🌟 Mix It Up! —
+   or dare the ⚡ **Lightning Round**: 60 seconds, one try per question, as many answers as you can!
+3. The globe zooms into America and asks 8 questions like *"Can you find Texas?"* or
    *"Tap on the Mississippi River!"*
-3. Tap the right spot on the map — first try earns ⭐⭐, second try earns ⭐, and every answer
+4. Tap the right spot on the map — first try earns ⭐⭐, second try earns ⭐, and every answer
    comes with a fun fact (state questions teach the state capital!).
-4. Wrong taps get a friendly "try again" — after two misses the answer is revealed. No fail states,
+5. Wrong taps get a friendly "try again" — after two misses the answer is revealed. No fail states,
    just exploring!
 
 ## Running it
