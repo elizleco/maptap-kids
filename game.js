@@ -164,7 +164,10 @@
     drawGlobe();
   });
 
-  // Zoom-into-America animation, then start the game
+  // Zoom-into-America animation, then start the game.
+  // The game start is driven by a plain timeout, not the transition's "end"
+  // event — an interrupted or throttled animation must never strand the player.
+  let zoomCbTimer = null;
   function zoomToAmerica(cb) {
     if (spinTimer) { spinTimer.stop(); spinTimer = null; }
     const startRotate = globeProj.rotate();
@@ -177,8 +180,9 @@
       .tween("zoom", () => t => {
         globeProj.rotate(ri(Math.min(t * 1.4, 1))).scale(si(t));
         drawGlobe();
-      })
-      .on("end", cb);
+      });
+    clearTimeout(zoomCbTimer);
+    zoomCbTimer = setTimeout(cb, 2050);
   }
 
   // ---------------------------------------------------------------
@@ -274,7 +278,15 @@
     endMessage: document.getElementById("end-message")
   };
 
-  let game = null; // { questions, index, stars, misses, locked, lightning, deadline }
+  const CAT_LABELS = {
+    states: "States", cities: "Cities", landmarks: "Landmarks", rivers: "Rivers",
+    mountains: "Mountains", mix: "Mix It Up", lightning: "Lightning Round"
+  };
+  const DIFF_LABELS = { easy: "Little Explorer", hard: "Map Master" };
+
+  let game = null; // { questions, index, stars, misses, locked, lightning, deadline, category }
+  let lastResult = null; // last finished game, for sharing
+  let challenge = null; // score parsed from a shared link
   let advanceTimer = null; // pending "next question" timeout
   let lightningTick = null; // countdown interval for lightning mode
   let difficulty = "easy"; // "easy" = borders + helper buttons, "hard" = blank map, tap from memory
@@ -322,7 +334,7 @@
     clearTimeout(advanceTimer);
     clearInterval(lightningTick);
     const lightning = category === "lightning";
-    game = { questions: buildQuestions(category), index: 0, stars: 0, misses: 0, locked: false, lightning };
+    game = { questions: buildQuestions(category), index: 0, stars: 0, misses: 0, locked: false, lightning, category };
     els.stars.textContent = "⭐ 0";
     if (lightning) {
       game.deadline = Date.now() + LIGHTNING_SECONDS * 1000;
@@ -726,11 +738,14 @@
     clearTimeout(advanceTimer);
     sndFanfare();
     const n = game.stars;
+    lastResult = { stars: n, max: null, category: "lightning", difficulty, lightning: true };
     els.endStars.textContent = "⭐".repeat(Math.max(1, Math.min(5, Math.ceil(n / 2))));
     els.endTitle.textContent = "⚡ Lightning Round Over!";
     els.endMessage.textContent = `You got ${n} answer${n === 1 ? "" : "s"} right in ${LIGHTNING_SECONDS} seconds! ` +
-      (n >= 10 ? "Super speedy! 🚀" : "Can you beat that next time?");
+      (n >= 10 ? "Super speedy! 🚀" : "Can you beat that next time?") +
+      challengeVerdict(n, "lightning");
     game = null;
+    resetShareButton();
     hideToast();
     swapScreen(els.game, els.end);
     confettiBurst(60);
@@ -740,15 +755,25 @@
     const max = game.questions.length * 2;
     const ratio = game.stars / max;
     sndFanfare();
+    lastResult = { stars: game.stars, max, category: game.category, difficulty, lightning: false };
     els.endStars.textContent = "⭐".repeat(Math.max(1, Math.round(ratio * 5)));
     els.endTitle.textContent = ratio >= 0.9 ? "WOW! Map Champion! 🏆"
       : ratio >= 0.6 ? "Amazing job, explorer! 🎉"
       : "Great exploring! 🧭";
     els.endMessage.textContent = `You earned ${game.stars} out of ${max} stars. ` +
-      (ratio >= 0.9 ? "You know America like the back of your hand!" : "Play again to earn even more stars!");
+      (ratio >= 0.9 ? "You know America like the back of your hand!" : "Play again to earn even more stars!") +
+      challengeVerdict(game.stars, game.category);
     game = null;
+    resetShareButton();
     swapScreen(els.game, els.end);
     confettiBurst(60);
+  }
+
+  function challengeVerdict(stars, category) {
+    if (!challenge || challenge.cat !== category) return "";
+    if (stars > challenge.stars) return ` 🏆 You BEAT the challenge of ${challenge.stars} ⭐!`;
+    if (stars === challenge.stars) return ` 🤝 You TIED the challenge of ${challenge.stars} ⭐!`;
+    return ` The challenge was ${challenge.stars} ⭐ — so close, try again!`;
   }
 
   // ---------------------------------------------------------------
@@ -835,6 +860,69 @@
     swapScreen(els.end, els.start);
     resetGlobe();
   });
+
+  // ---------------------------------------------------------------
+  // SHARE SCORE (link carries only score numbers — no names, no personal data)
+  // ---------------------------------------------------------------
+  const shareBtn = document.getElementById("share-btn");
+  function resetShareButton() { shareBtn.textContent = "📤 Share My Score!"; }
+
+  function shareUrl() {
+    const p = new URLSearchParams();
+    p.set("stars", lastResult.stars);
+    if (lastResult.max) p.set("max", lastResult.max);
+    p.set("cat", lastResult.category);
+    p.set("diff", lastResult.difficulty);
+    return `${location.origin}${location.pathname}?${p}`;
+  }
+
+  function shareText() {
+    const diff = DIFF_LABELS[lastResult.difficulty];
+    return lastResult.lightning
+      ? `⚡ I got ${lastResult.stars} answers right in ${LIGHTNING_SECONDS} seconds on the MapTap Kids Lightning Round (${diff})! Think you're faster? 🌎🇺🇸`
+      : `🌎 I earned ${lastResult.stars} out of ${lastResult.max} stars playing ${CAT_LABELS[lastResult.category]} on MapTap Kids (${diff})! Can you beat me? 🇺🇸`;
+  }
+
+  shareBtn.addEventListener("click", async () => {
+    if (!lastResult) return;
+    const text = shareText(), url = shareUrl();
+    if (navigator.share) {
+      try { await navigator.share({ title: "MapTap Kids", text, url }); return; }
+      catch (e) { if (e.name === "AbortError") return; /* else fall through to copy */ }
+    }
+    try {
+      await navigator.clipboard.writeText(`${text} ${url}`);
+      shareBtn.textContent = "✅ Copied! Paste it anywhere!";
+    } catch {
+      window.prompt("Copy your score link:", `${text} ${url}`);
+    }
+    setTimeout(resetShareButton, 2400);
+  });
+
+  // If this page was opened from a shared link, turn it into a challenge!
+  (function readChallenge() {
+    const p = new URLSearchParams(location.search);
+    if (!p.has("stars") || !p.has("cat")) return;
+    const cat = p.get("cat");
+    if (!(cat in CAT_LABELS)) return;
+    const stars = Math.max(0, Math.min(999, parseInt(p.get("stars"), 10) || 0));
+    const max = Math.max(0, Math.min(999, parseInt(p.get("max"), 10) || 0)) || null;
+    const diff = p.get("diff") === "hard" ? "hard" : "easy";
+    challenge = { stars, max, cat, diff, lightning: cat === "lightning" };
+
+    difficulty = diff;
+    document.querySelectorAll(".diff-btn").forEach(b => b.classList.toggle("selected", b.dataset.diff === diff));
+    document.getElementById("diff-hint").textContent = DIFF_HINTS[diff];
+
+    const banner = document.getElementById("challenge-banner");
+    banner.textContent = challenge.lightning
+      ? `🏆 A friend got ${stars} right in the ⚡ Lightning Round (${DIFF_LABELS[diff]}) — can you beat them?`
+      : `🏆 A friend earned ${stars}${max ? "/" + max : ""} ⭐ in ${CAT_LABELS[cat]} (${DIFF_LABELS[diff]}) — can you beat them?`;
+    banner.classList.remove("hidden");
+
+    const target = document.querySelector(`.cat-btn[data-cat="${cat}"]`);
+    if (target) target.classList.add("pulse-btn");
+  })();
 
   function resetGlobe() {
     globeProj.scale(GLOBE_SIZE / 2 - 10);

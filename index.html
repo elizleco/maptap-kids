@@ -12,6 +12,7 @@
   <div id="start-screen" class="screen">
     <h1 class="game-title"><span>🌎</span> MapTap Kids <span>🇺🇸</span></h1>
     <p class="tagline">Spin the globe… let's explore America!</p>
+    <div id="challenge-banner" class="hidden"></div>
     <div id="globe-holder"></div>
     <div class="difficulty-row">
       <button class="diff-btn selected" data-diff="easy">🐣 Little Explorer</button>
@@ -58,7 +59,10 @@
       <h2 id="end-title">Amazing job, explorer!</h2>
       <div id="end-stars"></div>
       <p id="end-message"></p>
-      <button id="play-again-btn" class="cat-btn mix">🔁 Play Again!</button>
+      <div class="end-buttons">
+        <button id="share-btn" class="cat-btn">📤 Share My Score!</button>
+        <button id="play-again-btn" class="cat-btn mix">🔁 Play Again!</button>
+      </div>
     </div>
   </div>
 

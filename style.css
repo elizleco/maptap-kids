@@ -271,6 +271,26 @@ body {
 #end-title { font-size: clamp(1.5rem, 4vw, 2.2rem); }
 #end-stars { font-size: clamp(1.6rem, 5vw, 2.6rem); letter-spacing: 4px; }
 #end-message { font-size: 1.15rem; max-width: 420px; }
+.end-buttons { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+
+/* challenge banner shown when a shared score link is opened */
+#challenge-banner {
+  background: #fff;
+  border: 4px solid var(--coral);
+  border-radius: 20px;
+  padding: 8px 20px;
+  font-size: clamp(1rem, 2.6vw, 1.2rem);
+  font-weight: bold;
+  text-align: center;
+  max-width: min(560px, 92vw);
+  box-shadow: 0 6px 0 rgba(30,58,95,0.35);
+  animation: challenge-bounce 1.6s ease-in-out infinite;
+}
+#challenge-banner.hidden { display: none; }
+@keyframes challenge-bounce { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+
+.cat-btn.pulse-btn { animation: btn-pulse 1.2s ease-in-out infinite; background: var(--coral); color: #fff; }
+@keyframes btn-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
 
 /* confetti */
 .confetti {

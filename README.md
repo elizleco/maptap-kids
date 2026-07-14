@@ -20,6 +20,10 @@ United States by tapping **states, cities, landmarks, rivers, and mountains**.
 6. Need a closer look? Zoom with the ➕/➖ buttons, pinch, or scroll, and drag to pan — 🗺️ resets
    the view. The map shows topography (river lines and ⛰️ mountain ridges) as landmarks to steer
    by; they hide automatically when they'd give an answer away.
+7. 📤 **Share your score!** The end screen's share button posts your score to socials (native share
+   sheet on phones, copy-link elsewhere). Friends who open the link see a challenge banner —
+   *"A friend earned 14/16 ⭐ — can you beat them?"* — with the same mode pre-selected. Links carry
+   only score numbers: no names, no personal data.
 
 ## Running it
 
