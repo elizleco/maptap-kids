@@ -1,0 +1,605 @@
+/* MapTap Kids — USA Adventure!
+   A tap-the-map geography game for children.
+   Flow: spinning globe -> zoom into America -> tap states, cities,
+   landmarks, rivers and mountains. */
+
+(async function () {
+  // ---------------------------------------------------------------
+  // DATA
+  // ---------------------------------------------------------------
+  const STATE_CAPITALS = {
+    Alabama: "Montgomery", Alaska: "Juneau", Arizona: "Phoenix", Arkansas: "Little Rock",
+    California: "Sacramento", Colorado: "Denver", Connecticut: "Hartford", Delaware: "Dover",
+    Florida: "Tallahassee", Georgia: "Atlanta", Hawaii: "Honolulu", Idaho: "Boise",
+    Illinois: "Springfield", Indiana: "Indianapolis", Iowa: "Des Moines", Kansas: "Topeka",
+    Kentucky: "Frankfort", Louisiana: "Baton Rouge", Maine: "Augusta", Maryland: "Annapolis",
+    Massachusetts: "Boston", Michigan: "Lansing", Minnesota: "St. Paul", Mississippi: "Jackson",
+    Missouri: "Jefferson City", Montana: "Helena", Nebraska: "Lincoln", Nevada: "Carson City",
+    "New Hampshire": "Concord", "New Jersey": "Trenton", "New Mexico": "Santa Fe",
+    "New York": "Albany", "North Carolina": "Raleigh", "North Dakota": "Bismarck",
+    Ohio: "Columbus", Oklahoma: "Oklahoma City", Oregon: "Salem", Pennsylvania: "Harrisburg",
+    "Rhode Island": "Providence", "South Carolina": "Columbia", "South Dakota": "Pierre",
+    Tennessee: "Nashville", Texas: "Austin", Utah: "Salt Lake City", Vermont: "Montpelier",
+    Virginia: "Richmond", Washington: "Olympia", "West Virginia": "Charleston",
+    Wisconsin: "Madison", Wyoming: "Cheyenne"
+  };
+
+  const CITIES = [
+    { name: "New York City", coords: [-74.006, 40.713], fact: "It's the biggest city in America — over 8 million people!" },
+    { name: "Los Angeles", coords: [-118.243, 34.052], fact: "Movie stars make films here in Hollywood!" },
+    { name: "Chicago", coords: [-87.630, 41.878], fact: "It's nicknamed the Windy City!" },
+    { name: "Houston", coords: [-95.369, 29.760], fact: "Astronauts talk to Houston from space!" },
+    { name: "Miami", coords: [-80.192, 25.762], fact: "Sunny beaches and dolphins live nearby!" },
+    { name: "Seattle", coords: [-122.332, 47.606], fact: "It rains a lot here — bring an umbrella!" },
+    { name: "Denver", coords: [-104.991, 39.739], fact: "It's exactly one mile above the sea — the Mile High City!" },
+    { name: "New Orleans", coords: [-90.071, 29.951], fact: "Famous for jazz music and yummy beignets!" },
+    { name: "Las Vegas", coords: [-115.139, 36.170], fact: "Its lights are so bright you can see them from space!" },
+    { name: "San Francisco", coords: [-122.419, 37.775], fact: "Cable cars climb its steep, hilly streets!" },
+    { name: "Washington, D.C.", coords: [-77.037, 38.907], fact: "The President of the United States lives here!" },
+    { name: "Boston", coords: [-71.059, 42.360], fact: "One of the oldest cities in America!" },
+    { name: "Nashville", coords: [-86.781, 36.163], fact: "It's called Music City — home of country music!" },
+    { name: "Orlando", coords: [-81.379, 28.538], fact: "Home to some of the world's biggest theme parks!" },
+    { name: "Phoenix", coords: [-112.074, 33.448], fact: "One of the hottest and sunniest cities in the USA!" }
+  ];
+
+  const LANDMARKS = [
+    { name: "Statue of Liberty", coords: [-74.045, 40.689], fact: "She was a gift from France and holds a torch!" },
+    { name: "Grand Canyon", coords: [-112.113, 36.107], fact: "It's a mile deep — carved by the Colorado River!" },
+    { name: "Golden Gate Bridge", coords: [-122.478, 37.819], fact: "This famous orange bridge is in San Francisco!" },
+    { name: "Mount Rushmore", coords: [-103.459, 43.879], fact: "Four presidents' faces are carved into the mountain!" },
+    { name: "Yellowstone", coords: [-110.588, 44.428], fact: "It has geysers that shoot hot water into the sky!" },
+    { name: "Niagara Falls", coords: [-79.074, 43.081], fact: "A giant waterfall between the USA and Canada!" },
+    { name: "Gateway Arch", coords: [-90.185, 38.624], fact: "This shiny arch in St. Louis is as tall as 63 elephants!" },
+    { name: "Space Needle", coords: [-122.349, 47.620], fact: "A flying-saucer tower in Seattle!" },
+    { name: "The White House", coords: [-77.037, 38.898], fact: "The President's home has 132 rooms!" },
+    { name: "The Alamo", coords: [-98.486, 29.426], fact: "A famous old fort in San Antonio, Texas!" },
+    { name: "Hollywood Sign", coords: [-118.322, 34.134], fact: "Giant white letters on a hill in Los Angeles!" },
+    { name: "Kennedy Space Center", coords: [-80.651, 28.573], fact: "Rockets blast off to space from here!" }
+  ];
+
+  const RIVERS = [
+    { name: "Mississippi River", fact: "One of the longest rivers in the world — steamboats sailed it!",
+      points: [[-95.2, 47.2], [-93.27, 44.98], [-91.1, 43.8], [-90.2, 38.63], [-89.18, 37.0], [-90.07, 35.15], [-91.1, 32.3], [-91.19, 30.45], [-90.07, 29.95], [-89.4, 29.1]] },
+    { name: "Missouri River", fact: "The longest river in the USA — explorers Lewis & Clark paddled it!",
+      points: [[-111.5, 45.93], [-111.3, 47.5], [-108.5, 47.8], [-103.6, 48.1], [-100.78, 46.8], [-100.35, 44.37], [-96.4, 42.5], [-95.94, 41.26], [-94.58, 39.1], [-92.2, 38.8], [-90.2, 38.8]] },
+    { name: "Colorado River", fact: "This mighty river carved the Grand Canyon!",
+      points: [[-105.8, 40.3], [-108.55, 39.06], [-109.55, 38.57], [-111.49, 36.94], [-112.11, 36.1], [-113.9, 36.0], [-114.74, 36.02], [-114.34, 34.48], [-114.62, 32.72]] },
+    { name: "Rio Grande", fact: "Its name means 'Big River' in Spanish!",
+      points: [[-106.9, 37.8], [-106.65, 35.08], [-106.49, 31.76], [-104.9, 30.4], [-103.25, 29.2], [-101.5, 29.6], [-99.5, 27.5], [-97.5, 25.9]] },
+    { name: "Ohio River", fact: "It flows past Pittsburgh, Cincinnati and Louisville!",
+      points: [[-80.0, 40.44], [-82.6, 38.75], [-84.51, 39.1], [-85.76, 38.25], [-87.57, 37.97], [-88.6, 37.07], [-89.18, 37.0]] },
+    { name: "Columbia River", fact: "Salmon leap up this river in the Pacific Northwest!",
+      points: [[-117.7, 48.9], [-119.3, 47.9], [-119.9, 46.6], [-118.9, 45.9], [-121.2, 45.6], [-122.4, 45.6], [-123.9, 46.2]] }
+  ];
+
+  const RANGES = [
+    { name: "Rocky Mountains", plural: true, fact: "They stretch over 3,000 miles — the backbone of America!",
+      points: [[-114.5, 48.8], [-113.0, 47.0], [-110.8, 44.8], [-109.5, 43.0], [-106.8, 40.5], [-105.5, 39.0], [-105.9, 37.5], [-106.0, 35.8]] },
+    { name: "Appalachian Mountains", plural: true, fact: "Some of the oldest mountains on Earth!",
+      points: [[-72.8, 44.3], [-74.2, 42.3], [-77.8, 40.6], [-79.5, 38.5], [-81.5, 36.5], [-84.0, 34.7]] },
+    { name: "Sierra Nevada", fact: "Home to giant sequoia trees — the biggest trees alive!",
+      points: [[-120.6, 39.8], [-119.8, 38.6], [-119.0, 37.4], [-118.29, 36.58]] },
+    { name: "Cascade Range", fact: "A chain of volcanoes including Mount Rainier!",
+      points: [[-121.7, 48.8], [-121.76, 46.85], [-121.7, 45.37], [-122.1, 44.0], [-122.1, 42.9]] }
+  ];
+
+  const PEAKS = [
+    { name: "Denali", coords: [-151.007, 63.069], fact: "The tallest mountain in North America — it's in Alaska!" },
+    { name: "Mount Rainier", coords: [-121.760, 46.853], fact: "A giant snowy volcano near Seattle!" },
+    { name: "Pikes Peak", coords: [-105.042, 38.841], fact: "The view from the top inspired the song 'America the Beautiful'!" },
+    { name: "Mount Whitney", coords: [-118.292, 36.578], fact: "The tallest peak in the lower 48 states!" }
+  ];
+
+  const CHEERS = ["Awesome! 🎉", "You got it! ⭐", "Super job! 🥳", "Way to go! 🌟", "Fantastic! 🎊", "You're a map star! 🗺️"];
+  const TRY_AGAIN = ["Almost! Try again! 💪", "Not quite — you can do it! 🔍", "Oops! Give it another tap! 😊"];
+
+  const QUESTIONS_PER_GAME = 8;
+  const PASTELS = ["#ffd6a5", "#caffbf", "#9bf6ff", "#ffc6ff", "#fdffb6", "#a0c4ff", "#ffadad", "#bdb2ff", "#b5ead7", "#ffdac1"];
+
+  // ---------------------------------------------------------------
+  // LOAD MAP DATA
+  // ---------------------------------------------------------------
+  const [world, us] = await Promise.all([
+    d3.json("data/countries-110m.json"),
+    d3.json("data/states-10m.json")
+  ]);
+  const countries = topojson.feature(world, world.objects.countries).features;
+  const allStates = topojson.feature(us, us.objects.states).features;
+
+  // ---------------------------------------------------------------
+  // SOUNDS (WebAudio, no files needed)
+  // ---------------------------------------------------------------
+  let audioCtx = null;
+  function tone(freq, start, dur, type = "sine", vol = 0.18) {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, audioCtx.currentTime + start);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + start + dur);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(audioCtx.currentTime + start);
+    o.stop(audioCtx.currentTime + start + dur + 0.05);
+  }
+  function ensureAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  }
+  const sndCorrect = () => { ensureAudio(); tone(523, 0, 0.15); tone(659, 0.12, 0.15); tone(784, 0.24, 0.3); };
+  const sndWrong = () => { ensureAudio(); tone(220, 0, 0.25, "triangle", 0.12); };
+  const sndTap = () => { ensureAudio(); tone(440, 0, 0.08, "sine", 0.08); };
+  const sndFanfare = () => { ensureAudio(); [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.15, 0.35)); };
+
+  // ---------------------------------------------------------------
+  // START SCREEN: SPINNING GLOBE
+  // ---------------------------------------------------------------
+  const GLOBE_SIZE = 480;
+  const globeSvg = d3.select("#globe-holder").append("svg")
+    .attr("viewBox", `0 0 ${GLOBE_SIZE} ${GLOBE_SIZE}`);
+
+  const globeProj = d3.geoOrthographic()
+    .scale(GLOBE_SIZE / 2 - 10)
+    .translate([GLOBE_SIZE / 2, GLOBE_SIZE / 2])
+    .rotate([40, -20]);
+  const globePath = d3.geoPath(globeProj);
+
+  globeSvg.append("circle")
+    .attr("cx", GLOBE_SIZE / 2).attr("cy", GLOBE_SIZE / 2).attr("r", GLOBE_SIZE / 2 - 10)
+    .attr("fill", "#4aa3df");
+  const globeLand = globeSvg.append("g").selectAll("path")
+    .data(countries).join("path")
+    .attr("fill", d => d.properties.name === "United States of America" ? "#ff8a5c" : "#8fd67a")
+    .attr("stroke", "#ffffff").attr("stroke-width", 0.6);
+  const globeGrat = globeSvg.append("path")
+    .datum(d3.geoGraticule10())
+    .attr("fill", "none").attr("stroke", "#ffffff").attr("stroke-opacity", 0.25);
+
+  function drawGlobe() {
+    globeLand.attr("d", globePath);
+    globeGrat.attr("d", globePath);
+  }
+  drawGlobe();
+
+  let spinTimer = d3.timer(elapsed => {
+    globeProj.rotate([40 + elapsed * 0.012, -20]);
+    drawGlobe();
+  });
+
+  // Zoom-into-America animation, then start the game
+  function zoomToAmerica(cb) {
+    if (spinTimer) { spinTimer.stop(); spinTimer = null; }
+    const startRotate = globeProj.rotate();
+    const endRotate = [98, -39, 0]; // centers the USA
+    const startScale = globeProj.scale();
+    const endScale = startScale * 5.2;
+    const ri = d3.interpolate(startRotate, endRotate);
+    const si = d3.interpolate(startScale, endScale);
+    d3.transition().duration(2000).ease(d3.easeCubicInOut)
+      .tween("zoom", () => t => {
+        globeProj.rotate(ri(Math.min(t * 1.4, 1))).scale(si(t));
+        drawGlobe();
+      })
+      .on("end", cb);
+  }
+
+  // ---------------------------------------------------------------
+  // USA MAP
+  // ---------------------------------------------------------------
+  const MAP_W = 975, MAP_H = 610;
+  const usProj = d3.geoAlbersUsa().scale(1300).translate([MAP_W / 2, MAP_H / 2]);
+  const usPath = d3.geoPath(usProj);
+  const lineGen = d3.line().curve(d3.curveBasis);
+
+  // Only keep the 50 states (things geoAlbersUsa can draw), skip tiny D.C.
+  const states = allStates.filter(f => usPath(f) && STATE_CAPITALS[f.properties.name]);
+
+  const mapSvg = d3.select("#map-holder").append("svg")
+    .attr("viewBox", `0 0 ${MAP_W} ${MAP_H}`);
+  const statesLayer = mapSvg.append("g");
+  const featureLayer = mapSvg.append("g"); // rivers / ranges / markers
+  const labelLayer = mapSvg.append("g");
+
+  statesLayer.selectAll("path")
+    .data(states).join("path")
+    .attr("class", "state")
+    .attr("d", usPath)
+    .attr("fill", (d, i) => PASTELS[i % PASTELS.length])
+    .attr("data-name", d => d.properties.name);
+
+  // ---------------------------------------------------------------
+  // GAME STATE
+  // ---------------------------------------------------------------
+  const els = {
+    start: document.getElementById("start-screen"),
+    game: document.getElementById("game-screen"),
+    end: document.getElementById("end-screen"),
+    question: document.getElementById("question-text"),
+    banner: document.getElementById("question-banner"),
+    stars: document.getElementById("star-count"),
+    progress: document.getElementById("progress"),
+    toast: document.getElementById("feedback-toast"),
+    endTitle: document.getElementById("end-title"),
+    endStars: document.getElementById("end-stars"),
+    endMessage: document.getElementById("end-message")
+  };
+
+  let game = null; // { questions, index, stars, misses, locked }
+  let advanceTimer = null; // pending "next question" timeout
+
+  const shuffle = arr => d3.shuffle(arr.slice());
+  const pick = (arr, n) => shuffle(arr).slice(0, n);
+  const rand = arr => arr[Math.floor(Math.random() * arr.length)];
+
+  function buildQuestions(category) {
+    const makers = {
+      states: () => pick(states, QUESTIONS_PER_GAME).map(f => ({ type: "state", target: f })),
+      cities: () => pick(CITIES, QUESTIONS_PER_GAME).map(c => ({ type: "point", kind: "city", target: c, pool: CITIES, emoji: "🏙️" })),
+      landmarks: () => pick(LANDMARKS, QUESTIONS_PER_GAME).map(l => ({ type: "point", kind: "landmark", target: l, pool: LANDMARKS, emoji: "📍" })),
+      rivers: () => pick(RIVERS.concat(RIVERS), QUESTIONS_PER_GAME).map(r => ({ type: "river", target: r })),
+      mountains: () => {
+        const qs = pick(RANGES, 4).map(r => ({ type: "range", target: r }))
+          .concat(pick(PEAKS, 4).map(p => ({ type: "point", kind: "peak", target: p, pool: PEAKS, emoji: "⛰️" })));
+        return shuffle(qs).slice(0, QUESTIONS_PER_GAME);
+      },
+      mix: () => {
+        const qs = [
+          ...pick(states, 2).map(f => ({ type: "state", target: f })),
+          ...pick(CITIES, 2).map(c => ({ type: "point", kind: "city", target: c, pool: CITIES, emoji: "🏙️" })),
+          ...pick(LANDMARKS, 2).map(l => ({ type: "point", kind: "landmark", target: l, pool: LANDMARKS, emoji: "📍" })),
+          ...pick(RIVERS, 1).map(r => ({ type: "river", target: r })),
+          ...pick(RANGES, 1).map(r => ({ type: "range", target: r }))
+        ];
+        return shuffle(qs);
+      }
+    };
+    return makers[category]();
+  }
+
+  function startGame(category) {
+    clearTimeout(advanceTimer);
+    game = { questions: buildQuestions(category), index: 0, stars: 0, misses: 0, locked: false };
+    els.stars.textContent = "⭐ 0";
+    showQuestion();
+  }
+
+  function questionPrompt(q) {
+    let name = q.type === "state" ? q.target.properties.name : q.target.name;
+    if (q.type === "river" || q.type === "range") name = "the " + name;
+    const isAre = q.target.plural ? "are" : "is";
+    const forms = [`Can you find ${name}? 🔍`, `Tap on ${name}!`, `Where ${isAre} ${name}? 🤔`];
+    return rand(forms);
+  }
+
+  // ---------------------------------------------------------------
+  // QUESTION RENDERING
+  // ---------------------------------------------------------------
+  function clearFeatures() {
+    featureLayer.selectAll("*").remove();
+    labelLayer.selectAll("*").remove();
+    statesLayer.selectAll(".state")
+      .interrupt()
+      .attr("fill", (d, i) => PASTELS[i % PASTELS.length])
+      .style("pointer-events", null)
+      .on("click", null);
+  }
+
+  function showQuestion() {
+    clearTimeout(advanceTimer);
+    const q = game.questions[game.index];
+    game.misses = 0;
+    game.locked = false;
+    hideToast();
+    clearFeatures();
+    els.progress.textContent = `${game.index + 1} / ${game.questions.length}`;
+    els.question.textContent = questionPrompt(q);
+
+    if (q.type === "state") setupStateQuestion(q);
+    else if (q.type === "point") setupPointQuestion(q);
+    else if (q.type === "river") setupRiverQuestion(q);
+    else if (q.type === "range") setupRangeQuestion(q);
+  }
+
+  // --- states: tap directly on the colored map ---
+  function setupStateQuestion(q) {
+    statesLayer.selectAll(".state").on("click", function (event, d) {
+      if (game.locked) return;
+      if (d.properties.name === q.target.properties.name) {
+        d3.select(this).attr("fill", "#7ed957").classed("correct-flash", true);
+        handleCorrect(q, usPath.centroid(d));
+      } else {
+        d3.select(this).transition().duration(180).attr("fill", "#c9c9c9")
+          .transition().duration(600).attr("fill", d3.select(this).attr("fill"));
+        handleMiss(q, () => revealState(q));
+      }
+    });
+  }
+  function revealState(q) {
+    const sel = statesLayer.selectAll(".state").filter(d => d.properties.name === q.target.properties.name);
+    sel.attr("fill", "#7ed957").classed("correct-flash", true);
+    revealDone(q, usPath.centroid(q.target));
+  }
+
+  // --- points (cities / landmarks / peaks): tap the right marker ---
+  function setupPointQuestion(q) {
+    const decoys = pick(q.pool.filter(p => p.name !== q.target.name), 4);
+    const options = shuffle([q.target, ...decoys]);
+    statesLayer.selectAll(".state").style("pointer-events", "none");
+
+    const groups = featureLayer.selectAll("g.marker")
+      .data(options).join("g")
+      .attr("class", "marker")
+      .attr("transform", d => `translate(${usProj(d.coords)})`);
+
+    groups.append("circle").attr("class", "pulse").attr("r", 16).attr("fill", "#ff6b6b");
+    groups.append("circle").attr("r", 15).attr("fill", "#ffffff").attr("stroke", "#1e3a5f").attr("stroke-width", 3);
+    groups.append("text").attr("text-anchor", "middle").attr("dy", "0.35em").attr("font-size", 16).text(q.emoji);
+
+    groups.on("click", function (event, d) {
+      if (game.locked) return;
+      if (d.name === q.target.name) {
+        markerToStar(d3.select(this));
+        labelPoint(q.target);
+        handleCorrect(q, usProj(d.coords));
+      } else {
+        d3.select(this).select("circle:nth-child(2)").attr("fill", "#c9c9c9");
+        d3.select(this).style("opacity", 0.45).style("pointer-events", "none");
+        handleMiss(q, () => revealPoint(q));
+      }
+    });
+  }
+  function markerToStar(g) {
+    g.select("text").text("⭐").attr("font-size", 20);
+    g.select("circle:nth-child(2)").attr("fill", "#ffd93d");
+  }
+  function revealPoint(q) {
+    const g = featureLayer.selectAll("g.marker").filter(d => d.name === q.target.name);
+    markerToStar(g);
+    labelPoint(q.target);
+    revealDone(q, usProj(q.target.coords));
+  }
+  function labelPoint(item) {
+    const [x, y] = usProj(item.coords);
+    labelLayer.append("text")
+      .attr("class", "answer-label")
+      .attr("x", x).attr("y", y - 24)
+      .attr("text-anchor", "middle")
+      .attr("font-size", 20)
+      .text(item.name);
+  }
+
+  // --- rivers: several blue squiggles, tap the right one ---
+  function setupRiverQuestion(q) {
+    const decoys = pick(RIVERS.filter(r => r.name !== q.target.name), 3);
+    const options = shuffle([q.target, ...decoys]);
+    statesLayer.selectAll(".state").style("pointer-events", "none");
+    drawLineOptions(q, options, {
+      stroke: "#2f7fd1", width: 6, hitWidth: 26,
+      correctStroke: "#1cb0f6", label: r => midpointOf(r)
+    });
+  }
+
+  // --- mountain ranges: thick brown ridges, tap the right one ---
+  function setupRangeQuestion(q) {
+    const decoys = pick(RANGES.filter(r => r.name !== q.target.name), 3);
+    const options = shuffle([q.target, ...decoys]);
+    statesLayer.selectAll(".state").style("pointer-events", "none");
+    drawLineOptions(q, options, {
+      stroke: "#9c6b4f", width: 18, hitWidth: 34, opacity: 0.75, cap: "round",
+      correctStroke: "#7ed957", label: r => midpointOf(r), decorate: true
+    });
+  }
+
+  function midpointOf(item) {
+    const pts = item.points.map(p => usProj(p)).filter(Boolean);
+    return pts[Math.floor(pts.length / 2)];
+  }
+
+  function drawLineOptions(q, options, cfg) {
+    const groups = featureLayer.selectAll("g.lineopt")
+      .data(options).join("g").attr("class", "lineopt");
+
+    groups.each(function (d) {
+      const g = d3.select(this);
+      const projected = d.points.map(p => usProj(p)).filter(Boolean);
+      const dAttr = lineGen(projected);
+      g.append("path")
+        .attr("class", "visible-line")
+        .attr("d", dAttr)
+        .attr("fill", "none")
+        .attr("stroke", cfg.stroke)
+        .attr("stroke-width", cfg.width)
+        .attr("stroke-linecap", cfg.cap || "round")
+        .attr("stroke-linejoin", "round")
+        .attr("stroke-opacity", cfg.opacity ?? 0.9);
+      if (cfg.decorate) {
+        // little mountain peaks along the ridge
+        projected.filter((p, i) => i % 2 === 0).forEach(p => {
+          g.append("text").attr("x", p[0]).attr("y", p[1] + 5)
+            .attr("text-anchor", "middle").attr("font-size", 15)
+            .style("pointer-events", "none").text("⛰️");
+        });
+      }
+      g.append("path")
+        .attr("class", cfg.decorate ? "range-hit" : "river-hit")
+        .attr("d", dAttr)
+        .attr("fill", "none")
+        .attr("stroke", "transparent")
+        .attr("stroke-width", cfg.hitWidth)
+        .attr("stroke-linecap", "round");
+    });
+
+    groups.on("click", function (event, d) {
+      if (game.locked) return;
+      if (d.name === q.target.name) {
+        d3.select(this).select(".visible-line").attr("stroke", cfg.correctStroke).attr("stroke-opacity", 1);
+        labelLine(q.target, cfg);
+        handleCorrect(q, cfg.label(d));
+      } else {
+        d3.select(this).style("opacity", 0.3).style("pointer-events", "none");
+        handleMiss(q, () => {
+          const g = featureLayer.selectAll("g.lineopt").filter(x => x.name === q.target.name);
+          g.select(".visible-line").attr("stroke", cfg.correctStroke).attr("stroke-opacity", 1);
+          labelLine(q.target, cfg);
+          revealDone(q, cfg.label(q.target));
+        });
+      }
+    });
+  }
+  function labelLine(item, cfg) {
+    const [x, y] = cfg.label(item);
+    labelLayer.append("text")
+      .attr("class", "answer-label")
+      .attr("x", x).attr("y", y - 18)
+      .attr("text-anchor", "middle")
+      .attr("font-size", 20)
+      .text(item.name);
+  }
+
+  // ---------------------------------------------------------------
+  // ANSWER HANDLING
+  // ---------------------------------------------------------------
+  function factFor(q) {
+    if (q.type === "state") {
+      const n = q.target.properties.name;
+      return `The capital of ${n} is ${STATE_CAPITALS[n]}!`;
+    }
+    return q.target.fact;
+  }
+  function nameFor(q) {
+    return q.type === "state" ? q.target.properties.name : q.target.name;
+  }
+
+  function handleCorrect(q, xy) {
+    game.locked = true;
+    sndCorrect();
+    const earned = game.misses === 0 ? 2 : 1;
+    game.stars += earned;
+    els.stars.textContent = `⭐ ${game.stars}`;
+    confettiBurst();
+    showToast(`${rand(CHEERS)} ${"⭐".repeat(earned)}`, factFor(q));
+    clearTimeout(advanceTimer);
+    advanceTimer = setTimeout(nextQuestion, 2600);
+  }
+
+  function handleMiss(q, revealFn) {
+    sndWrong();
+    game.misses++;
+    els.banner.classList.remove("wiggle");
+    void els.banner.offsetWidth; // restart animation
+    els.banner.classList.add("wiggle");
+    if (game.misses >= 2) {
+      game.locked = true;
+      revealFn();
+    } else {
+      showToast(rand(TRY_AGAIN), null, 1400);
+    }
+  }
+
+  function revealDone(q, xy) {
+    sndTap();
+    showToast(`${nameFor(q)} is right here! 👀`, factFor(q));
+    clearTimeout(advanceTimer);
+    advanceTimer = setTimeout(nextQuestion, 2800);
+  }
+
+  function nextQuestion() {
+    if (!game) return; // went home mid-round
+    game.index++;
+    if (game.index >= game.questions.length) endGame();
+    else showQuestion();
+  }
+
+  function endGame() {
+    const max = game.questions.length * 2;
+    const ratio = game.stars / max;
+    sndFanfare();
+    els.endStars.textContent = "⭐".repeat(Math.max(1, Math.round(ratio * 5)));
+    els.endTitle.textContent = ratio >= 0.9 ? "WOW! Map Champion! 🏆"
+      : ratio >= 0.6 ? "Amazing job, explorer! 🎉"
+      : "Great exploring! 🧭";
+    els.endMessage.textContent = `You earned ${game.stars} out of ${max} stars. ` +
+      (ratio >= 0.9 ? "You know America like the back of your hand!" : "Play again to earn even more stars!");
+    game = null;
+    swapScreen(els.game, els.end);
+    confettiBurst(60);
+  }
+
+  // ---------------------------------------------------------------
+  // UI HELPERS
+  // ---------------------------------------------------------------
+  let toastTimer = null;
+  function showToast(text, fact, autoHide) {
+    clearTimeout(toastTimer);
+    els.toast.innerHTML = "";
+    els.toast.append(text);
+    if (fact) {
+      const f = document.createElement("span");
+      f.className = "fact";
+      f.textContent = "💡 " + fact;
+      els.toast.appendChild(f);
+    }
+    els.toast.classList.remove("hidden");
+    if (autoHide) toastTimer = setTimeout(hideToast, autoHide);
+  }
+  function hideToast() {
+    clearTimeout(toastTimer);
+    els.toast.classList.add("hidden");
+  }
+
+  function swapScreen(from, to) {
+    from.classList.add("hidden");
+    to.classList.remove("hidden");
+  }
+
+  function confettiBurst(n = 28) {
+    const colors = ["#ff6b6b", "#ffd93d", "#7ed957", "#4aa3df", "#a78bfa", "#ff8ad1"];
+    for (let i = 0; i < n; i++) {
+      const c = document.createElement("div");
+      c.className = "confetti";
+      c.style.left = Math.random() * 100 + "vw";
+      c.style.background = colors[i % colors.length];
+      c.style.animationDuration = 1.4 + Math.random() * 1.4 + "s";
+      c.style.animationDelay = Math.random() * 0.3 + "s";
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 3200);
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // WIRING
+  // ---------------------------------------------------------------
+  document.querySelectorAll(".cat-btn[data-cat]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      ensureAudio();
+      sndTap();
+      const cat = btn.dataset.cat;
+      zoomToAmerica(() => {
+        swapScreen(els.start, els.game);
+        startGame(cat);
+      });
+    });
+  });
+
+  document.getElementById("home-btn").addEventListener("click", () => {
+    game = null;
+    clearTimeout(advanceTimer);
+    hideToast();
+    clearFeatures();
+    swapScreen(els.game, els.start);
+    resetGlobe();
+  });
+
+  document.getElementById("play-again-btn").addEventListener("click", () => {
+    swapScreen(els.end, els.start);
+    resetGlobe();
+  });
+
+  function resetGlobe() {
+    globeProj.scale(GLOBE_SIZE / 2 - 10);
+    if (!spinTimer) {
+      spinTimer = d3.timer(elapsed => {
+        globeProj.rotate([40 + elapsed * 0.012, -20]);
+        drawGlobe();
+      });
+    }
+  }
+})();

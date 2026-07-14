@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MapTap Kids — USA Adventure!</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- START SCREEN: spinning globe -->
+  <div id="start-screen" class="screen">
+    <h1 class="game-title"><span>🌎</span> MapTap Kids <span>🇺🇸</span></h1>
+    <p class="tagline">Spin the globe… let's explore America!</p>
+    <div id="globe-holder"></div>
+    <p class="pick-label">Pick your adventure!</p>
+    <div class="category-buttons">
+      <button class="cat-btn" data-cat="states">🗺️ States</button>
+      <button class="cat-btn" data-cat="cities">🏙️ Cities</button>
+      <button class="cat-btn" data-cat="landmarks">🗽 Landmarks</button>
+      <button class="cat-btn" data-cat="rivers">🏞️ Rivers</button>
+      <button class="cat-btn" data-cat="mountains">⛰️ Mountains</button>
+      <button class="cat-btn mix" data-cat="mix">🌟 Mix It Up!</button>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN: USA map -->
+  <div id="game-screen" class="screen hidden">
+    <div class="hud">
+      <button id="home-btn" title="Back to globe">🌎</button>
+      <div id="question-banner">
+        <div id="question-text">Get ready…</div>
+      </div>
+      <div class="hud-right">
+        <div id="star-count">⭐ 0</div>
+        <div id="progress">1 / 8</div>
+      </div>
+    </div>
+    <div id="map-holder"></div>
+    <div id="feedback-toast" class="hidden"></div>
+  </div>
+
+  <!-- END SCREEN -->
+  <div id="end-screen" class="screen hidden">
+    <div class="end-card">
+      <h2 id="end-title">Amazing job, explorer!</h2>
+      <div id="end-stars"></div>
+      <p id="end-message"></p>
+      <button id="play-again-btn" class="cat-btn mix">🔁 Play Again!</button>
+    </div>
+  </div>
+
+  <script src="lib/d3.min.js"></script>
+  <script src="lib/topojson.min.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
