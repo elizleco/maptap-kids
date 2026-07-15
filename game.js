@@ -271,6 +271,7 @@
     question: document.getElementById("question-text"),
     banner: document.getElementById("question-banner"),
     stars: document.getElementById("star-count"),
+    points: document.getElementById("point-count"),
     progress: document.getElementById("progress"),
     toast: document.getElementById("feedback-toast"),
     endTitle: document.getElementById("end-title"),
@@ -334,8 +335,9 @@
     clearTimeout(advanceTimer);
     clearInterval(lightningTick);
     const lightning = category === "lightning";
-    game = { questions: buildQuestions(category), index: 0, stars: 0, misses: 0, locked: false, lightning, category };
+    game = { questions: buildQuestions(category), index: 0, stars: 0, points: 0, misses: 0, locked: false, lightning, category };
     els.stars.textContent = "⭐ 0";
+    els.points.textContent = "🎯 0";
     if (lightning) {
       game.deadline = Date.now() + LIGHTNING_SECONDS * 1000;
       els.progress.textContent = `⏱️ ${LIGHTNING_SECONDS}s`;
@@ -377,6 +379,7 @@
     clearTimeout(advanceTimer);
     const q = game.questions[game.index];
     game.misses = 0;
+    game.qStart = Date.now();
     game.locked = false;
     hideToast();
     clearFeatures();
@@ -497,9 +500,10 @@
     statesLayer.selectAll(".state").style("pointer-events", "none");
     const [tx, ty] = usProj(q.target.coords);
     addTapOverlay((x, y) => {
-      if (Math.hypot(x - tx, y - ty) <= TOL.point) {
+      const dist = Math.hypot(x - tx, y - ty);
+      if (dist <= TOL.point) {
         dropStar(q.target);
-        handleCorrect(q);
+        handleCorrect(q, 1 - 0.5 * (dist / TOL.point));
       } else {
         tapRipple(x, y);
         handleMiss(q, () => { dropStar(q.target); revealDone(q); }, directionHint(x, y, tx, ty));
@@ -551,9 +555,10 @@
     statesLayer.selectAll(".state").style("pointer-events", "none");
     const pts = q.target.points.map(p => usProj(p)).filter(Boolean);
     addTapOverlay((x, y) => {
-      if (distToPolyline(x, y, pts) <= tol) {
+      const dist = distToPolyline(x, y, pts);
+      if (dist <= tol) {
         drawAnswerLine(q.target, style);
-        handleCorrect(q);
+        handleCorrect(q, 1 - 0.5 * (dist / tol));
       } else {
         tapRipple(x, y);
         const [mx, my] = pts[Math.floor(pts.length / 2)];
@@ -675,19 +680,25 @@
     return q.type === "state" ? q.target.properties.name : q.target.name;
   }
 
-  function handleCorrect(q) {
+  // accuracy: 1 = bullseye, down to ~0.5 for a tap at the edge of the tolerance zone
+  function handleCorrect(q, accuracy = 1) {
     game.locked = true;
     sndCorrect();
     const earned = game.lightning ? 1 : (game.misses === 0 ? 2 : 1);
     game.stars += earned;
     els.stars.textContent = `⭐ ${game.stars}`;
+    const secs = (Date.now() - game.qStart) / 1000;
+    const speed = Math.max(0.2, Math.min(1, 1 - (secs - 2) / 13)); // full points under 2s, floor at 20%
+    const pts = Math.round(1000 * accuracy * speed * (game.misses ? 0.5 : 1));
+    game.points += pts;
+    els.points.textContent = `🎯 ${game.points.toLocaleString()}`;
     clearTimeout(advanceTimer);
     if (game.lightning) {
-      showToast(rand(CHEERS));
+      showToast(`${rand(CHEERS)} +${pts.toLocaleString()} pts`);
       advanceTimer = setTimeout(nextQuestion, 700);
     } else {
       confettiBurst();
-      showToast(`${rand(CHEERS)} ${"⭐".repeat(earned)}`, factFor(q));
+      showToast(`${rand(CHEERS)} ${"⭐".repeat(earned)} +${pts.toLocaleString()} pts`, factFor(q));
       advanceTimer = setTimeout(nextQuestion, 2600);
     }
   }
@@ -738,10 +749,10 @@
     clearTimeout(advanceTimer);
     sndFanfare();
     const n = game.stars;
-    lastResult = { stars: n, max: null, category: "lightning", difficulty, lightning: true };
+    lastResult = { stars: n, max: null, points: game.points, category: "lightning", difficulty, lightning: true };
     els.endStars.textContent = "⭐".repeat(Math.max(1, Math.min(5, Math.ceil(n / 2))));
     els.endTitle.textContent = "⚡ Lightning Round Over!";
-    els.endMessage.textContent = `You got ${n} answer${n === 1 ? "" : "s"} right in ${LIGHTNING_SECONDS} seconds! ` +
+    els.endMessage.textContent = `You got ${n} answer${n === 1 ? "" : "s"} right in ${LIGHTNING_SECONDS} seconds and scored 🎯 ${game.points.toLocaleString()} points! ` +
       (n >= 10 ? "Super speedy! 🚀" : "Can you beat that next time?") +
       challengeVerdict(n, "lightning");
     game = null;
@@ -755,12 +766,12 @@
     const max = game.questions.length * 2;
     const ratio = game.stars / max;
     sndFanfare();
-    lastResult = { stars: game.stars, max, category: game.category, difficulty, lightning: false };
+    lastResult = { stars: game.stars, max, points: game.points, category: game.category, difficulty, lightning: false };
     els.endStars.textContent = "⭐".repeat(Math.max(1, Math.round(ratio * 5)));
     els.endTitle.textContent = ratio >= 0.9 ? "WOW! Map Champion! 🏆"
       : ratio >= 0.6 ? "Amazing job, explorer! 🎉"
       : "Great exploring! 🧭";
-    els.endMessage.textContent = `You earned ${game.stars} out of ${max} stars. ` +
+    els.endMessage.textContent = `You earned ${game.stars} out of ${max} stars and scored 🎯 ${game.points.toLocaleString()} points. ` +
       (ratio >= 0.9 ? "You know America like the back of your hand!" : "Play again to earn even more stars!") +
       challengeVerdict(game.stars, game.category);
     game = null;
@@ -771,6 +782,13 @@
 
   function challengeVerdict(stars, category) {
     if (!challenge || challenge.cat !== category) return "";
+    // points are the finer measure — compare them when the shared link has them
+    if (challenge.pts != null && lastResult && lastResult.points != null) {
+      const mine = lastResult.points, theirs = challenge.pts;
+      if (mine > theirs) return ` 🏆 You BEAT their score of ${theirs.toLocaleString()} points!`;
+      if (mine === theirs) return ` 🤝 You TIED their score of ${theirs.toLocaleString()} points!`;
+      return ` Their score was ${theirs.toLocaleString()} points — so close, try again!`;
+    }
     if (stars > challenge.stars) return ` 🏆 You BEAT the challenge of ${challenge.stars} ⭐!`;
     if (stars === challenge.stars) return ` 🤝 You TIED the challenge of ${challenge.stars} ⭐!`;
     return ` The challenge was ${challenge.stars} ⭐ — so close, try again!`;
@@ -871,6 +889,7 @@
     const p = new URLSearchParams();
     p.set("stars", lastResult.stars);
     if (lastResult.max) p.set("max", lastResult.max);
+    p.set("pts", lastResult.points);
     p.set("cat", lastResult.category);
     p.set("diff", lastResult.difficulty);
     return `${location.origin}${location.pathname}?${p}`;
@@ -878,9 +897,10 @@
 
   function shareText() {
     const diff = DIFF_LABELS[lastResult.difficulty];
+    const pts = lastResult.points.toLocaleString();
     return lastResult.lightning
-      ? `⚡ I got ${lastResult.stars} answers right in ${LIGHTNING_SECONDS} seconds on the MapTap Kids Lightning Round (${diff})! Think you're faster? 🌎🇺🇸`
-      : `🌎 I earned ${lastResult.stars} out of ${lastResult.max} stars playing ${CAT_LABELS[lastResult.category]} on MapTap Kids (${diff})! Can you beat me? 🇺🇸`;
+      ? `⚡ I got ${lastResult.stars} answers right in ${LIGHTNING_SECONDS} seconds (${pts} points) on the MapTap Kids Lightning Round (${diff})! Think you're faster? 🌎🇺🇸`
+      : `🌎 I earned ${lastResult.stars} out of ${lastResult.max} stars and ${pts} points playing ${CAT_LABELS[lastResult.category]} on MapTap Kids (${diff})! Can you beat me? 🇺🇸`;
   }
 
   shareBtn.addEventListener("click", async () => {
@@ -907,17 +927,19 @@
     if (!(cat in CAT_LABELS)) return;
     const stars = Math.max(0, Math.min(999, parseInt(p.get("stars"), 10) || 0));
     const max = Math.max(0, Math.min(999, parseInt(p.get("max"), 10) || 0)) || null;
+    const pts = p.has("pts") ? Math.max(0, Math.min(999999, parseInt(p.get("pts"), 10) || 0)) : null;
     const diff = p.get("diff") === "hard" ? "hard" : "easy";
-    challenge = { stars, max, cat, diff, lightning: cat === "lightning" };
+    challenge = { stars, max, pts, cat, diff, lightning: cat === "lightning" };
 
     difficulty = diff;
     document.querySelectorAll(".diff-btn").forEach(b => b.classList.toggle("selected", b.dataset.diff === diff));
     document.getElementById("diff-hint").textContent = DIFF_HINTS[diff];
 
     const banner = document.getElementById("challenge-banner");
+    const ptsBit = pts != null ? ` (${pts.toLocaleString()} pts)` : "";
     banner.textContent = challenge.lightning
-      ? `🏆 A friend got ${stars} right in the ⚡ Lightning Round (${DIFF_LABELS[diff]}) — can you beat them?`
-      : `🏆 A friend earned ${stars}${max ? "/" + max : ""} ⭐ in ${CAT_LABELS[cat]} (${DIFF_LABELS[diff]}) — can you beat them?`;
+      ? `🏆 A friend got ${stars} right${ptsBit} in the ⚡ Lightning Round (${DIFF_LABELS[diff]}) — can you beat them?`
+      : `🏆 A friend earned ${stars}${max ? "/" + max : ""} ⭐${ptsBit} in ${CAT_LABELS[cat]} (${DIFF_LABELS[diff]}) — can you beat them?`;
     banner.classList.remove("hidden");
 
     const target = document.querySelector(`.cat-btn[data-cat="${cat}"]`);

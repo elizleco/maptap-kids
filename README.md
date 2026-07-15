@@ -3,6 +3,10 @@
 A tap-the-map geography game for children. Spin the globe, zoom into America, and learn the
 United States by tapping **states, cities, landmarks, rivers, and mountains**.
 
+Grown-ups get their own game: **🌍 MapTap Pro** ([pro.html](pro.html)) — the whole world on a
+real NASA satellite globe, maptap.gg-style. Spin it, tap where you think the place is, score by
+proximity + speed (max 5,000 per guess, 10 rounds, 15 seconds each).
+
 ## How to play
 
 1. Pick a difficulty:
@@ -14,7 +18,8 @@ United States by tapping **states, cities, landmarks, rivers, and mountains**.
 3. The globe zooms into America and asks 8 questions like *"Can you find Texas?"* or
    *"Tap on the Mississippi River!"*
 4. Tap the right spot on the map — first try earns ⭐⭐, second try earns ⭐, and every answer
-   comes with a fun fact (state questions teach the state capital!).
+   comes with a fun fact (state questions teach the state capital!). Every answer also scores
+   🎯 points: up to 1,000, based on how fast you answer and how close your tap lands.
 5. Wrong taps get a friendly "try again" — after two misses the answer is revealed. No fail states,
    just exploring!
 6. Need a closer look? Zoom with the ➕/➖ buttons, pinch, or scroll, and drag to pan — 🗺️ resets
@@ -42,4 +47,6 @@ python3 -m http.server 8743
   so Alaska and Hawaii are included)
 - Map data: [world-atlas](https://github.com/topojson/world-atlas) and
   [us-atlas](https://github.com/topojson/us-atlas)
+- MapTap Pro renders NASA's public-domain [Blue Marble](https://visibleearth.nasa.gov/collection/1484/blue-marble)
+  imagery, reprojected per-pixel onto an orthographic globe on a canvas
 - Sounds generated with WebAudio — no audio files

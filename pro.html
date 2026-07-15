@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MapTap Pro — World Edition</title>
+<link rel="stylesheet" href="pro.css">
+</head>
+<body>
+
+  <canvas id="globe-canvas"></canvas>
+  <svg id="overlay"></svg>
+
+  <!-- HUD (hidden until a round starts) -->
+  <div id="pro-hud" class="hidden">
+    <div id="pro-prompt">
+      <span id="pro-kind">City</span>
+      <span id="pro-target">Paris</span>
+    </div>
+    <div id="pro-meta">
+      <span id="pro-round">1 / 10</span>
+      <span id="pro-score">0</span>
+    </div>
+    <div id="pro-timer"><div id="pro-timer-fill"></div></div>
+  </div>
+
+  <div id="pro-toast" class="hidden"></div>
+
+  <div id="pro-zoom">
+    <button id="pro-zoom-in">+</button>
+    <button id="pro-zoom-out">−</button>
+  </div>
+
+  <!-- START overlay -->
+  <div id="pro-start" class="overlay-card-wrap">
+    <div class="overlay-card">
+      <h1>🌍 MapTap Pro</h1>
+      <p class="sub">World Edition — satellite view</p>
+      <div id="pro-challenge" class="hidden"></div>
+      <p class="rules">10 places. 15 seconds each. Spin the globe, tap where you think it is.<br>
+      Closer + faster = more points. Max 5,000 per guess.</p>
+      <button id="pro-play" class="pro-btn primary">▶ Start</button>
+      <a class="kids-link" href="index.html">🐣 Looking for the kids version?</a>
+    </div>
+  </div>
+
+  <!-- END overlay -->
+  <div id="pro-end" class="overlay-card-wrap hidden">
+    <div class="overlay-card">
+      <h1 id="pro-end-title">Round complete!</h1>
+      <div id="pro-end-score">0</div>
+      <p id="pro-end-msg"></p>
+      <div class="end-row">
+        <button id="pro-share" class="pro-btn">📤 Share Score</button>
+        <button id="pro-again" class="pro-btn primary">🔁 Play Again</button>
+      </div>
+      <a class="kids-link" href="index.html">🐣 Kids version</a>
+    </div>
+  </div>
+
+  <script src="lib/d3.min.js"></script>
+  <script src="lib/topojson.min.js"></script>
+  <script src="pro.js"></script>
+</body>
+</html>

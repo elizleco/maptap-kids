@@ -113,6 +113,17 @@ body {
 .cat-btn.mix { background: var(--sunny); }
 .cat-btn.lightning { background: #ff9f43; }
 
+#pro-link {
+  font-size: 0.95rem;
+  font-weight: bold;
+  color: var(--ink);
+  background: rgba(255,255,255,0.6);
+  padding: 5px 16px;
+  border-radius: 999px;
+  text-decoration: none;
+}
+#pro-link:hover { background: #fff; }
+
 /* Map Master mode: no borders, no hover peeking */
 .hard-map { cursor: crosshair; }
 .hard-map .state:hover { filter: none; }
@@ -159,6 +170,7 @@ body {
 
 .hud-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
 #star-count { font-size: 1.3rem; font-weight: bold; background: #fff; border-radius: 999px; padding: 2px 14px; border: 3px solid var(--ink); }
+#point-count { font-size: 1rem; font-weight: bold; background: #fff; border-radius: 999px; padding: 2px 12px; border: 3px solid var(--ink); }
 #progress { font-size: 0.95rem; font-weight: bold; color: var(--ink); }
 
 #map-holder {
