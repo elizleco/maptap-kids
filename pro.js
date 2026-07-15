@@ -180,16 +180,29 @@
     ctx.restore();
   }
 
-  const COARSE = 420, FINE = 900;
-  let fineTimer = null;
-  function draw(interactive) {
-    syncProjection();
-    renderGlobe(interactive ? COARSE : FINE);
-    redrawOverlay();
-    if (interactive) {
-      clearTimeout(fineTimer);
-      fineTimer = setTimeout(() => { renderGlobe(FINE); redrawOverlay(); }, 180);
-    }
+  // Still-image rendering: the satellite globe is painted ONCE at a single
+  // uniform quality and left alone. It only repaints when the view itself
+  // changes (drag / zoom / fly-to) — pins and HUD never touch the raster —
+  // so there is no resolution popping or background flashing.
+  let renderRes = 640; // auto-steps down once if this device renders slowly
+  let rasterDirty = true;
+  let rafPending = false;
+
+  function requestDraw(viewChanged) {
+    if (viewChanged) rasterDirty = true;
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(() => {
+      rafPending = false;
+      syncProjection();
+      if (rasterDirty) {
+        const t0 = performance.now();
+        renderGlobe(renderRes);
+        rasterDirty = false;
+        if (performance.now() - t0 > 45 && renderRes > 440) renderRes = 440;
+      }
+      redrawOverlay();
+    });
   }
 
   function resize() {
@@ -202,7 +215,7 @@
     baseScale = Math.min(W, H) * 0.42;
     scale = Math.max(baseScale * 0.7, Math.min(scale, baseScale * 8));
     makeStars();
-    draw(false);
+    requestDraw(true);
   }
   window.addEventListener("resize", resize);
 
@@ -254,19 +267,19 @@
         const sens = 57 / scale;
         rotate[0] += e.dx * sens;
         rotate[1] = Math.max(-89, Math.min(89, rotate[1] - e.dy * sens));
-        draw(true);
+        requestDraw(true);
       })
   );
   overlay.call(
     d3.zoom()
       .filter(ev => ev.type === "wheel" || (ev.touches && ev.touches.length >= 2))
       .scaleExtent([0.7, 8])
-      .on("zoom", e => { scale = baseScale * e.transform.k; draw(true); })
+      .on("zoom", e => { scale = baseScale * e.transform.k; requestDraw(true); })
   ).on("dblclick.zoom", null);
 
   function zoomStep(f) {
     scale = Math.max(baseScale * 0.7, Math.min(baseScale * 8, scale * f));
-    draw(true);
+    requestDraw(true);
   }
   document.getElementById("pro-zoom-in").addEventListener("click", () => zoomStep(1.4));
   document.getElementById("pro-zoom-out").addEventListener("click", () => zoomStep(1 / 1.4));
@@ -351,7 +364,7 @@
       els.timerFill.classList.toggle("low", left < 4);
       if (left <= 0) timeUp();
     }, 100);
-    draw(false);
+    requestDraw(false); // clears old pins; the globe raster stays put
   }
 
   function scoreGuess(q, guess) {
@@ -394,7 +407,7 @@
     const target = [-coords[0], -coords[1]];
     const ri = d3.interpolate(rotate.slice(), target);
     d3.transition().duration(900).ease(d3.easeCubicInOut)
-      .tween("fly", () => t => { rotate = ri(t); draw(true); });
+      .tween("fly", () => t => { rotate = ri(t); requestDraw(true); });
     setTimeout(cb, 950);
   }
 
@@ -463,11 +476,7 @@
   document.getElementById("pro-play").addEventListener("click", startGame);
   document.getElementById("pro-again").addEventListener("click", startGame);
 
-  // idle globe: slow spin until the first game starts
+  // still globe on load — no idle animation loop, nothing repaints until
+  // the player drags, zooms, or the camera flies to an answer
   resize();
-  const idleSpin = d3.timer(() => {
-    if (game) { idleSpin.stop(); return; }
-    rotate[0] += 0.04;
-    draw(true);
-  });
 })();
