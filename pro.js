@@ -149,7 +149,10 @@
         if (rho2 > 1) continue; // space stays transparent
         const cosc = Math.sqrt(1 - rho2);
         const phi = Math.asin(cosc * sinPhi0 + dy * cosPhi0);
-        const lam = lam0 + Math.atan2(dx, cosc * cosPhi0 - dy * sinPhi0);
+        // longitude = atan2(...) MINUS the rotation angle — this must mirror
+        // d3.geoOrthographic().rotate() exactly, or the imagery drifts away
+        // from the click/pin layer
+        const lam = Math.atan2(dx, cosc * cosPhi0 - dy * sinPhi0) - lam0;
         let u = (lam / DEG + 180) / 360;
         u -= Math.floor(u);
         const v = (90 - phi / DEG) / 180;
